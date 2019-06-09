@@ -9,14 +9,11 @@ import (
 
 type paramsKey struct{}
 
-// ParamsKey is the request context key under which URL params are stored.
-//
-// This is only present from go 1.7.
+// go 1.7+版本才能使用
 var ParamsKey = paramsKey{}
 
-// Handler is an adapter which allows the usage of an http.Handler as a
-// request handle. With go 1.7+, the Params will be available in the
-// request context under ParamsKey.
+// 将http.HandlerFunc函数适配成请求处理函数，不使用Params参数，利用context包传输变量
+// go 1.7+版本才能使用
 func (r *Router) Handler(method, path string, handler http.Handler) {
 	r.Handle(method, path,
 		func(w http.ResponseWriter, req *http.Request, p Params) {
@@ -28,10 +25,9 @@ func (r *Router) Handler(method, path string, handler http.Handler) {
 	)
 }
 
-// ParamsFromContext pulls the URL parameters from a request context,
-// or returns nil if none are present.
-//
-// This is only present from go 1.7.
+// 从请求上下文获取变量值，并且封装成Params
+// go 1.7+版本添加context包，这些框架已经不需要Params参数
+// go 1.7+版本才能使用
 func ParamsFromContext(ctx context.Context) Params {
 	p, _ := ctx.Value(ParamsKey).(Params)
 	return p

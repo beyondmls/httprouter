@@ -1,7 +1,17 @@
-// Copyright 2013 Julien Schmidt. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be found
-// in the LICENSE file.
-
+// 最核心的数据结构，前缀树radix tree
+// 例如：
+//   GET("/search/", func1)
+//   GET("/support/", func2)
+//   GET("/about-us/", func3)
+//   GET("/about-us/team/", func4)
+//
+// 生成的前缀树：
+//   /
+//   |s
+//   ||earch/   -->func1
+//   ||upport/  -->func2
+//   |about-us/ -->func3
+//   ||team/    -->func4
 package httprouter
 
 import (
@@ -10,6 +20,7 @@ import (
 	"unicode/utf8"
 )
 
+// 返回最小的整数
 func min(a, b int) int {
 	if a <= b {
 		return a
@@ -17,6 +28,7 @@ func min(a, b int) int {
 	return b
 }
 
+// 返回命名参数的数量
 func countParams(path string) uint8 {
 	var n uint
 	for i := 0; i < len(path); i++ {
@@ -34,21 +46,42 @@ func countParams(path string) uint8 {
 type nodeType uint8
 
 const (
-	static nodeType = iota // default
+	static nodeType = iota
 	root
 	param
 	catchAll
 )
 
 type node struct {
-	path      string
+	// 节点的路径，例如：/search与/support
+	// 一级节点路径为s，二级节点earch和upport
+	path string
+
+	// 判断当前节点是不是命名参数节点
 	wildChild bool
-	nType     nodeType
+
+	// 节点类型：
+	// static：静态节点
+	// root：根节点
+	// catchAll：*匹配的节点
+	// param：命名节点，:匹配的节点
+	nType nodeType
+
+	// 请求路径的最大参数数量
 	maxParams uint8
-	indices   string
-	children  []*node
-	handle    Handle
-	priority  uint32
+
+	// 子树的第1个字符，例如：/search与/support
+	// s节点的indices为eu，代表2个子树，首字母为e和u
+	indices string
+
+	// 子节点列表
+	children []*node
+
+	// 节点的处理函数
+	handle   Handle
+
+	// 优先级
+	priority uint32
 }
 
 // increments priority of the given child and reorders if necessary
@@ -75,8 +108,7 @@ func (n *node) incrementChildPrio(pos int) int {
 	return newPos
 }
 
-// addRoute adds a node with the given handle to the path.
-// Not concurrency-safe!
+// 添加节点保存请求路径与处理函数，非并发安全
 func (n *node) addRoute(path string, handle Handle) {
 	fullPath := path
 	n.priority++
@@ -143,7 +175,7 @@ func (n *node) addRoute(path string, handle Handle) {
 
 					// Check if the wildcard matches
 					if len(path) >= len(n.path) && n.path == path[:len(n.path)] &&
-						// Check for longer wildcard, e.g. :name and :names
+					// Check for longer wildcard, e.g. :name and :names
 						(len(n.path) >= len(path) || path[len(n.path)] == '/') {
 						continue walk
 					} else {

@@ -1,25 +1,15 @@
-// Copyright 2013 Julien Schmidt. All rights reserved.
-// Based on the path package, Copyright 2009 The Go Authors.
-// Use of this source code is governed by a BSD-style license that can be found
-// in the LICENSE file.
-
 package httprouter
 
-// CleanPath is the URL version of path.Clean, it returns a canonical URL path
-// for p, eliminating . and .. elements.
+// CleanPath函数是URL版本的path.Clean，返回去除多于的.和..的简洁路径
 //
-// The following rules are applied iteratively until no further processing can
-// be done:
-//	1. Replace multiple slashes with a single slash.
-//	2. Eliminate each . path name element (the current directory).
-//	3. Eliminate each inner .. path name element (the parent directory)
-//	   along with the non-.. element that precedes it.
-//	4. Eliminate .. elements that begin a rooted path:
-//	   that is, replace "/.." by "/" at the beginning of a path.
+// 以下处理规则迭代重复的进行处理直到没有可处理的:
+//	1. 将多个斜杠替代为单斜杠
+//	2. 去除每个 . 路径元素
+//	3. 去除每个 .. 路径元素，如果前面存在元素，一起替换，例如：/static/css/../style.css 被替换为 /static/style.css
+//	4. 去除根路径的 .. 元素，例如：/../ 被替换为 /
 //
-// If the result of this process is an empty string, "/" is returned
+// 如果处理结束之后路径是空字符串返回'/'
 func CleanPath(p string) string {
-	// Turn empty string into "/"
 	if p == "" {
 		return "/"
 	}
@@ -27,26 +17,23 @@ func CleanPath(p string) string {
 	n := len(p)
 	var buf []byte
 
-	// Invariants:
-	//      reading from path; r is index of next byte to process.
-	//      writing to buf; w is index of next byte to write.
-
-	// path must start with '/'
+	// r 是处理请求路径的下一个字节的索引
 	r := 1
+	// w 是写入buf缓冲区的下一个字节的索引
 	w := 1
 
+	// 判断路径是否以'/'开始，否则自动处理为'/'开始
 	if p[0] != '/' {
 		r = 0
 		buf = make([]byte, n+1)
 		buf[0] = '/'
 	}
 
+	// 判断路径是否以'/'结束
 	trailing := n > 1 && p[n-1] == '/'
 
-	// A bit more clunky without a 'lazybuf' like the path package, but the loop
-	// gets completely inlined (bufApp). So in contrast to the path package this
-	// loop has no expensive function calls (except 1x make)
-
+	// 顺序读取请求路径的每个字符
+	// 假设路径为：/src/.././//filepath/，应该返回 /src/filepath/
 	for r < n {
 		switch {
 		case p[r] == '/':
@@ -106,10 +93,10 @@ func CleanPath(p string) string {
 	if buf == nil {
 		return p[:w]
 	}
+
 	return string(buf[:w])
 }
 
-// internal helper to lazily create a buffer if necessary
 func bufApp(buf *[]byte, s string, w int, c byte) {
 	if *buf == nil {
 		if s[w] == c {
