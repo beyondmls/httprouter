@@ -1,5 +1,5 @@
 // httprouter是以前缀树实现的高性能的请求路由
-// 从实现原理看只支持简单的请求路径和命名参数，不支持正则表达式
+// 从实现原理看只支持简单的请求路径和路径参数，不支持正则表达式
 //
 //  package main
 //
@@ -30,7 +30,7 @@
 // GET, POST, PUT, PATCH and DELETE函数是注册路由的快捷方式
 // 其他方法使用router.Handle方法注册路由
 //
-// 支持2种命名参数:
+// 支持2种路径参数:
 //  :name     named parameter
 //  *name     catch-all parameter
 //

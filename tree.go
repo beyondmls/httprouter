@@ -4,7 +4,7 @@
 //   GET("/support/", func2)
 //   GET("/about-us/", func3)
 //   GET("/about-us/team/", func4)
-//
+//   GET("/blog/:post/", func5)
 // 生成的前缀树：
 //   /
 //   |s
@@ -12,6 +12,9 @@
 //   ||upport/  -->func2
 //   |about-us/ -->func3
 //   ||team/    -->func4
+//   |blog/
+//   ||:post
+//   |||/       -->func5
 package httprouter
 
 import (
@@ -28,7 +31,7 @@ func min(a, b int) int {
 	return b
 }
 
-// 返回命名参数的数量
+// 返回路径参数的数量
 func countParams(path string) uint8 {
 	var n uint
 	for i := 0; i < len(path); i++ {
@@ -74,13 +77,13 @@ type node struct {
 	// s节点的indices为eu，代表2个子树，首字母为e和u
 	indices string
 
-	// 子节点列表
+	// 当前节点的直接子节点
 	children []*node
 
-	// 节点的处理函数
-	handle   Handle
+	// 当前节点的处理函数
+	handle Handle
 
-	// 优先级
+	// 优先级，查找的时候会用到,表示当前节点加上所有子节点的数目
 	priority uint32
 }
 
@@ -111,14 +114,17 @@ func (n *node) incrementChildPrio(pos int) int {
 // 添加节点保存请求路径与处理函数，非并发安全
 func (n *node) addRoute(path string, handle Handle) {
 	fullPath := path
+	// 给当前节点的权重+1
 	n.priority++
+	// 计算传入的路径参数的数量
 	numParams := countParams(path)
 
-	// non-empty tree
+	// 如果树不是空的
+	// 判断的条件是当前节点的 path 的字符串长度和子节点的数量全部都大于 0
 	if len(n.path) > 0 || len(n.children) > 0 {
 	walk:
 		for {
-			// Update maxParams of the current node
+			// 如果路径参数的数量大于当前节点配置的最大，替换
 			if numParams > n.maxParams {
 				n.maxParams = numParams
 			}
@@ -235,12 +241,14 @@ func (n *node) addRoute(path string, handle Handle) {
 			}
 			return
 		}
-	} else { // Empty tree
+	} else {
+		// 如果树不是空的，在当前节点下面添加子节点
 		n.insertChild(numParams, path, fullPath, handle)
 		n.nType = root
 	}
 }
 
+// 插入子节点
 func (n *node) insertChild(numParams uint8, path, fullPath string, handle Handle) {
 	var offset int // already handled bytes of the path
 
@@ -354,13 +362,9 @@ func (n *node) insertChild(numParams uint8, path, fullPath string, handle Handle
 	n.handle = handle
 }
 
-// Returns the handle registered with the given path (key). The values of
-// wildcards are saved to a map.
-// If no handle can be found, a TSR (trailing slash redirect) recommendation is
-// made if a handle exists with an extra (without the) trailing slash for the
-// given path.
+// 获取URL的处理函数，如果没有，尝试去除末尾斜杠寻找对应的处理函数
 func (n *node) getValue(path string) (handle Handle, p Params, tsr bool) {
-walk: // outer loop for walking the tree
+walk:
 	for {
 		if len(path) > len(n.path) {
 			if path[:len(n.path)] == n.path {
